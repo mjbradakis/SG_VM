@@ -1,0 +1,86 @@
+#!/bin/bash -x
+
+prefix=$1
+
+#
+#  Source our common functions - this will let us install a Debian package.
+#
+if [ -e /usr/lib/xen-tools/common.sh ]; then
+    . /usr/lib/xen-tools/common.sh
+else
+    echo "Installation problem"
+fi
+
+#Set up ssh for the opts tree.
+
+mkdir -p ${prefix}/root/.ssh
+
+cat <<EOF >>${prefix}/root/.ssh/config
+Host github.com
+User git
+IdentityFile ~/.ssh/gitkey
+EOF
+
+cat <<EOF >>${prefix}/root/.ssh/gitkey
+-----BEGIN RSA PRIVATE KEY-----
+MIIEoAIBAAKCAQEAsoR3yo0cE8LXEWBaEs8r4sYNmZMLiDzGgX5lp7JTDF6xgjMp
+rU2ZVZMk8E29CiY8/0GtUwzabZfmzgJLCiFCMLZ0s6Mkcr5NJkx9axwHQun5+lUS
++AsEbnNrDHKXba39RKoqC1LesrMevz/gjqGiBbrcrdftsvyByFLhHmToQWYnv1Ju
+WFSJX8at8S5nF1mT2WCbNtG0PpOzgXk1SqxLEwtnj+3AI1XE8aU5m7BpHjf40d+b
+O8IAYtaJ/YHPpEdUDDNPK/Xy8tydhkOwjcl04PeEYUuiMfomFKywEasfXnfQvqEg
+/87f751vgvumT+NXoALOk/2hfdLcgTAHXJpm9wIBIwKCAQAt54yEiq9yy7OlYetG
+qk0dDltEv2ldi/iHssmux3Rw5SZUrhIH/gLbfZvIw4hhsg+vWgf/abSClMZSOxqc
+NHAbJ5paFAIO4Ho9DFrDxWDz8wXEBz9kWpq9UOEDM2jEbpGVUFP0SIJodzPKx0hf
+MOCFIWvyMDXO8Hkk4hyhamebyWGt0o99SFiT84dY6p4cEfXRHQ0J8aOqhJ2CCa7k
+DB/WMy2mrZ1QINg4U5Fsj5G36chah+P5j8ru9E7BAYeZG9u1RUe5i/ed5pKthYgk
+DkbdLhC+MifKDcN3gJYMDmhl66Gxesie6eqr+2QXogdyTC8FkU4QCLhxjgYi4zwN
+bf/zAoGBAN5b4FowObkCIDwy1P2d35WtcCZDVnDR6EIq+9+4CPAeK4tJyJc9PYXW
+BEYdXHy2d1h5cDT1JhL8lbULpX6SDIs9Dff7Ic9jiaCCbANZ8gcTv765g3RKt/Sv
+e9+UlvkhixpX2q1z6jpIYLriJcPqOA5x/Q/mAWYhteRP6Y9gqcy9AoGBAM2GlJDP
+HemsgZxIHlfv3tBwf3siJONjxClAV61xHt8lpw5MLKiufBKyW/bYJZlHM3i/e2F8
+F2ZvpzDm1l4wlY7VUM57s9JiJ6YoJbg12Mv/S71uzD3VfnIiroj43B53rbNfPkrp
+AaNDTqEofDc3ZpJRQnKohPxNLYr+7zkdC+/DAoGAclsi7I3UiwhoWXk6Vou00KJW
+7xtRBtJaMKhkRytyT5p8y0qEawmNWsXWT/HXyxwC3QtBBUrgYYk3DKbnZaoyVjyo
+GSIRY1fDH1kEWX62/FNMqzrV5AkrZ+U4ZFsL0JToc/Kq+h5bM+q1Z2z9erL4QfF6
+1PnyF0SJbhp4Hdnw7PMCgYBj06c/BYOOwYDIQElAp7Vd7X+/dvv5avjg1hv1KFDS
+ySVBdXTG9an6c+OGhj4l4ME6piX8JlSCNjtDo1Itv9OdJcgpxw4y/HmoeeZvapyA
+V23uS8JJ61qsdz7U0KVt4luu5R5BpF/hlbh6KZtrRstro8/RSom8YAAtkcSmtlZB
+QQKBgDBGhF7JyU0HnD/SXL0Kgp2cyZR87cQupjOjxfb5YXFICgB9e+cgpSHUUQFB
+ulFEOJu7Nx3vR+w69LTm0jrCMMSmRhVhQapCVpD4ef3+duAda0AA+eDdVauKHHCT
+ZrmZ4u3HpfZPimk2CPJx7garqAQWP9FpliwtazrD2iDj4sCP
+-----END RSA PRIVATE KEY-----
+EOF
+
+chmod 600 ${prefix}/root/.ssh/gitkey
+
+cat <<EOF >>${prefix}/root/.ssh/known_hosts
+github.com,207.97.227.239 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==
+monitor.aws.speedgauge.net,75.101.143.196 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD2f1CR7uYS
+KGAt0LRBnVI/dG/KhHXPj/sNfZTvB0zxs4vgQ4aHhHjkM56+RM8QjECuL+j9o/S9KNQqc+o6qbnZK9loJAyOz481Hq
+Ym9ZjX7wCTNFRP/0vgL6dIuhhM91b8uzzP35RA6Up9+Rn/LUo86IhlDMJIyLhSOdbiC2o/4jUzPyzeK8NwZyweJPg8
+j00Q5/mGRX2UA7tvtOdcwDuy5N6S0zTnw7gQrJyDdrPS5Ek7vov9U1Ja0Juq5knmxvu4C867u7Wn4fnEbBBXtQR8oV
+lg1qk+8vuOLk64lExtfaBX/nMwvujQGT8eQrdbHHul7hk3EXy1+3TZWolonMN/
+EOF
+
+AS_GROUP='static-b'
+FQDN='b.speedgauge.net'
+echo $FQDN > ${prefix}/etc/nodename
+echo "b" > ${prefix}/etc/hostname
+echo $AS_GROUP > ${prefix}/etc/instance-id
+echo "mark@speedgauge.net" > ${prefix}/etc/sg-owner
+
+# This is NOT the way to do it.
+echo "/opt/speedgauge/chef/solo/static-b.json" > ${prefix}/etc/sg-nodeconf
+
+echo $AS_GROUP > ${prefix}/etc/autoscaling-group
+echo $AS_GROUP > ${prefix}/etc/availability-zone
+
+
+mkdir -p ${prefix}/etc/chef
+
+cat <<EOF > ${prefix}/etc/chef/solo.rb
+node_name "b.speedgauge.net"
+file_cache_path "/opt/speedgauge/chef"
+cookbook_path "/opt/speedgauge/chef/cookbooks"
+EOF
+
