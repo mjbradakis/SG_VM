@@ -1,0 +1,162 @@
+#!/bin/bash -x
+ 
+# if just rebooting an existing VM this has all been done.
+ 
+#if [ -x /etc/chef/is-solo ] 
+#  then
+#    exit 0
+#fi
+ 
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+ 
+export OPSROOT=/opt/speedgauge/ops
+ 
+export DEBIAN_FRONTEND=noninteractive
+export DEBIAN_PRIORITY=critical
+export DEBCONF_NONINTERACTIVE_SEEN=true
+ 
+# Get chef repo
+ 
+echo "deb http://apt.opscode.com/ `lsb_release -cs`-0.10 main" | sudo tee /etc/apt/sources.list.d/opscode.list
+ 
+PACKAGES='
+        ruby ruby-dev rubygems libopenssl-ruby rdoc
+        ri irb wget ssl-cert subversion git python-configobj
+        mailutils curl unzip exim4 chef locate vim telnet
+        sendemail libio-socket-ssl-perl'
+ 
+apt-get update
+ 
+apt-get install --force-yes -y $PACKAGES
+ 
+ 
+# you'd think you wouldn't have to rm it, but its 'restart' doesn't check to see if it's enabled (eg logrotate.d)
+/usr/sbin/update-rc.d chef-client disable
+/etc/init.d/chef-client stop
+rm /etc/init.d/chef-client
+
+apt-get install -y --force-yes debian-archive-keyring debconf-utils git-core ssl-cert
+
+# For testing, see if this works.
+SG_OWNER='mark@speedgauge.net'
+FQDN=`cat /etc/nodename`
+NODE_CONF=`cat /etc/sg-nodeconf`
+
+mkdir -p $OPSROOT
+git clone git@github.com:SpeedGauge/ops.git $OPSROOT
+
+# XXX this is kind of a weird place for this, but chef doesn't seem to have a
+# good way to manage debconf values?
+debconf-set-selections <<EOF
+exim4-config        exim4/dc_other_hostnames        string
+exim4-config        exim4/dc_eximconfig_configtype        select        mail sent by smarthost; received via SMTP or fetchmail 
+exim4-config        exim4/no_config        boolean        true
+exim4-config        exim4/hide_mailname        boolean        false
+exim4-config        exim4/dc_postmaster        string        ops@speedgauge.net
+exim4-config        exim4/dc_smarthost        string        smtp.gmail.com::587
+exim4-config        exim4/dc_relay_domains        string
+exim4-config        exim4/dc_relay_nets        string
+exim4-config        exim4/mailname        string        $FQDN
+exim4-config        exim4/dc_readhost        string
+exim4-config        exim4/use_split_config        boolean        false
+exim4-config        exim4/dc_localdelivery        select        mbox format in /var/mail/
+exim4-config        exim4/dc_local_interfaces        string        127.0.0.1 ; ::1
+exim4-config        exim4/dc_minimaldns        boolean        false
+EOF
+dpkg-reconfigure -f noninteractive exim4-config
+
+
+# Replace ops key with chef key
+mv /root/.ssh/gitkey /root/.ssh/gitkey.ops
+
+cat <<EOF >>/root/.ssh/gitkey
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAvGEHmuyJu8UvUwnoP0NJyh2+EJtHF65Wg0E3gtiwUbqfdiIT
+7yfXvx+LJCBIydVY1cuevyxArYAOZXOgVYrB1zS6CoGH1maHxqXx2SAgSV/wfhnB
+BAHRdD74B5AAHmvd+wxjR9PPkXksazcqxVhCIAcHJOaBOsDzeyAcDmS0ZIG3q0wJ
+EWkNGE8lGMjsEeXjufCNiHmFTlnz6H5KmdsPvovGtLns7spMUjnnh0/6BFLr6GYM
+IpjtgLzfcbSnRePcAvxURNH6vaQf0WpqEX9VGBdCZRpzWu+Zec1PDqB9tewnH7kc
+pZ7LwQq7Ys39pGd7Pypc35eFnHKPAs6umYXuLwIDAQABAoIBACT0A8HoVLx42ee4
+Mc73LCpx2y72xuNmV6I30OPiDfR6X32VAcQQVMoxLeJQUvcE2wBViTaHP8jJLgnI
+vNMK/StyNGyLLFJqmoflVaP6IVtDbrHN64cVtDjRgWY6YUuWbV0p+O/GJRmsY4JE
+uCcuQQp3VnduoDseTqUAj4BjUN/GHEKlI6RpEOsHGvJ6lTZqEUEjA5g7mxiOAoA5
+tEJnIXEI177LGkmrE/OMOZvyqGEomG6rVtqUpYE5XrNBZ2cROuqYFJ6/WXsNXXbr
+smEw5MFptI03JYB3aRBa2YN4WGo3btN3D7nouw3nx7VggV3SySwLdwSpkia1f5x1
+3xuUGwECgYEA472Cz9NPBTH+HwUjABqkDO54Zechx6t1/t9yQW2VePTD+TxB+Fcq
+EVn2+PLjf+JjubPzcFOXFsGngl86GbbKZIniOqyLJkDRO3t8LThpHoq3QZW94E5U
+00Zv/iR8Xg4R/51IshKw6c00P55/eSoxjKoUYfBQgz0B28O5Ppp1oDECgYEA08En
+Pxse3PczwJbNwO8lpiTA3LFywYk4fHpjFdXcsOkeIRynPzXdxMtVoISRWWZBhiwW
+vXaGN83ryXcn+yZsviChC5l42L2u4RBzjGb16lwFjz+YvKKR+2mb4o0SNFBl16QY
+GU9gKdNIl4rLRtxCN+KS+Nx3x5WcOS5oNDqUPF8CgYB3cwDXjJeXu/7zujf/Z/m/
+ppyTpkU7ex0qj3xYAOgzRv47DXX0kZNJAozdSlg0zUNNNatrsQxALVZ0tQm+Tved
+AA0ehT1+1ORpdH1PIpVQJaW0ypuKuMsY/YrkG7L3ih26mn50mAUevDi5XaKypITU
+qKiELg2sqCT/ZYsV4OHtIQKBgEyrhftKZY1aECnuMEdoD3itnAsMUOGUPpiLc67n
+RUXk0hzpFAFGDqr/eFxrQ3lcFeNvuTgWXxh7faDvfNFpozvf8o+RnPjVDSm+XCf8
+65NUiErKmxHJxxOBtIh9zZaVeZpvdq5LWCUss/7yqRFaFLvJVK+4m8HvAKaPj/lB
+MIT/AoGBANSGZ02Khk2vrhrysfyf7kx17rPJ3mfaHtx+aGKrPxk9ZQwYivk+wc9d
+8O+byNY45FLCCmFa0Fm/SW6fSzKFgM0rYRgVP4su3/xy0ZxNVmfL8ylyQQExNfgU
+SbZGClKv27EID0MTxPLEFFz0AekBAjhyaC91OUJszBC95bRU4zE6
+-----END RSA PRIVATE KEY-----
+EOF
+
+chmod 600 /root/.ssh/gitkey
+
+# look for a branch that matches our AS group name, default to master
+BRANCH=master
+for b in `git ls-remote git@github.com:SpeedGauge/chef.git |grep 'refs/heads/' |awk '{print $2}' |awk -F/ '{print $3}'` ; do
+        if [ "x$b" = "x$AS_GROUP" ] ; then
+                BRANCH=$b
+                break
+        fi
+done
+
+REPO=/opt/speedgauge/chef
+mkdir -p $REPO
+cd $REPO
+git init
+# XXX could use SG_OWNER-like thing to automatically use a user-specific repo as well
+git remote add -t $BRANCH -f origin git@github.com:SpeedGauge/chef.git
+git checkout $BRANCH
+
+
+mkdir -p /etc/apt/trusted.gpg.d
+# keys.gnupg.net is unreliable, so we keep this in git.
+#gpg --keyserver keys.gnupg.net --recv-keys 83EF826A
+#gpg --export packages@opscode.com > /etc/apt/trusted.gpg.d/opscode-keyring.gpg
+cp $OPSROOT/etc/opscode-keyring.gpg /etc/apt/trusted.gpg.d/opscode-keyring.gpg
+chown root:root /etc/apt/trusted.gpg.d/opscode-keyring.gpg
+chmod 0644 /etc/apt/trusted.gpg.d/opscode-keyring.gpg
+#add-apt-repository "deb http://apt.opscode.com/ `lsb_release -cs`-0.10 main"
+
+
+# Install setuptools to enable easy installation of supervisord.
+
+#wget https://bitbucket.org/pypa/setuptools/raw/bootstrap/ez_setup.py -O - | python
+
+#/usr/local/bin/easy_install supervisor
+
+# Set indicator to flag as a chef-solo node, and set up cron to run updates.
+touch /etc/chef/is_solo
+
+# first chef run, takes a while (ten minutes or so)
+chef-solo -l debug -c /etc/chef/solo.rb -j $NODE_CONF 2>&1 |tee /tmp/chef-first.out
+status="completed successfully"
+if [ $? -ne 0 ] ; then
+        # this likely means email won't work either, but hey worth a shot.
+        status="FAILED ($?)"
+fi
+echo "first run of chef-client on $FQDN $status." > /tmp/chef-status-email
+echo >> /tmp/chef-status-email
+cat /tmp/chef-first.out >> /tmp/chef-status-email || true
+# obviously if exim failed to get set up, this won't work either... but that's kinda the point. 
+cat /tmp/chef-status-email | mail -s "$FQDN status." $SG_OWNER
+
+# XXX this could probably be moved to the chef recipe that installs the script
+cat <<EOF > /etc/cron.d/sg-update-chef
+MAILTO=$SG_OWNER
+*/30 * * * * root /usr/local/sbin/sg-update-chef.sh >> /dev/null
+EOF
+
+exit 0
+
+
